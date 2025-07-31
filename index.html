@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>即時 Emoji 聊天室 (v3.1 - 不重複回覆)</title>
+    <title>即時 Emoji 聊天室 (v3.2 - 圖片轉換)</title>
     <style>
         :root {
             --line-green: #06C755;
@@ -46,6 +46,11 @@
             background-color: var(--bubble-received-bg); color: var(--font-color);
             align-self: flex-start; border-bottom-left-radius: 4px;
         }
+        .message-bubble img {
+            max-width: 100%;
+            border-radius: 8px;
+            display: block; 
+        }
         .chat-input-area {
             display: flex; padding: 8px; background-color: #f5f5f5;
             border-top: 1px solid #e0e0e0;
@@ -71,7 +76,7 @@
 
         <main class="chat-messages" id="chat-messages">
             <div class="message-bubble received">
-                抱歉，我更新了！現在符號更完整，我也會好好用標點符號了。試試看吧！
+                抱歉，我更新了！現在符號更完整，我也會好好用標點符號了。試試看輸入 "ab" 並送出吧！
             </div>
         </main>
 
@@ -98,9 +103,19 @@
             ';': '✨', ':': '👀', '~': '〰️', '`': '⚡'
         };
 
+        const imageMapping = {
+            '🍎🍌': 'https://images.unsplash.com/photo-1543083477-4f785aeafaa9?q=80&w=200', // 蘋果與香蕉
+            '🐱🐶': 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=200',  // 貓與狗
+            '🍕🍔': 'https://images.unsplash.com/photo-1621295228839-a1b467615951?q=80&w=200' // Pizza & Burger
+        };
+
         const botReplies = [
             "今天讀書還順利嗎？",
             "別忘了休息一下，喝杯水吧！",
+            "離散數學的排列組合算完了嗎？",
+            "計組的 Pipeline 搞懂了嗎？",
+            "演算法的 Big O 不要忘記喔！",
+            "累的話，就來聊聊天吧！"
         ];
 
         const messageInput = document.getElementById('message-input');
@@ -124,8 +139,14 @@
         function sendMessage() {
             const emojiMessage = messageInput.value.trim();
             if (emojiMessage === '') return;
+            
+            if (imageMapping[emojiMessage]) {
+                const imageUrl = imageMapping[emojiMessage];
+                appendMessage(imageUrl, 'sent', true);
+            } else {
+                appendMessage(emojiMessage, 'sent');
+            }
 
-            appendMessage(emojiMessage, 'sent');
             messageInput.value = '';
             messageInput.focus();
 
@@ -150,10 +171,23 @@
             appendMessage(replyText, 'received');
         }
 
-        function appendMessage(text, type) {
+        function appendMessage(content, type, isImage = false) {
             const messageBubble = document.createElement('div');
             messageBubble.classList.add('message-bubble', type);
-            messageBubble.textContent = text;
+            
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = content;
+                img.alt = "使用者傳送的圖片";
+                messageBubble.appendChild(img);
+                if (type === 'sent') {
+                    messageBubble.style.fontSize = '1em';
+                    messageBubble.style.padding = '5px';
+                }
+            } else {
+                messageBubble.textContent = content;
+            }
+
             chatMessages.appendChild(messageBubble);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
