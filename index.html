@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即時 Emoji 聊天室 (v3.1 - 不重複回覆)</title>
+    <style>
+        :root {
+            --line-green: #06C755;
+            --line-bg: #79acdd;
+            --font-color: #333;
+            --bubble-sent-bg: #8DE041;
+            --bubble-received-bg: #FFFFFF;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, '蘋方-繁', 'Microsoft JhengHei', sans-serif;
+            margin: 0; padding: 0; background-color: #f0f0f0;
+            display: flex; justify-content: center; align-items: center; height: 100vh;
+        }
+        .chat-container {
+            width: 100%; max-width: 400px; height: 90vh; max-height: 800px;
+            border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); background-color: var(--line-bg);
+        }
+        .chat-header {
+            background-color: var(--line-green); color: white; padding: 12px 16px;
+            font-weight: bold; font-size: 1.1em; text-align: center;
+        }
+        .chat-messages {
+            flex-grow: 1; padding: 16px 12px; overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        .chat-messages::-webkit-scrollbar { width: 6px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); border-radius: 3px; }
+        .message-bubble {
+            max-width: 75%; padding: 10px 14px; border-radius: 18px;
+            margin-bottom: 10px; position: relative; word-wrap: break-word; line-height: 1.4;
+        }
+        .message-bubble.sent {
+            background-color: var(--bubble-sent-bg); color: var(--font-color);
+            align-self: flex-end; border-bottom-right-radius: 4px; font-size: 1.5em;
+            word-break: break-all;
+        }
+        .message-bubble.received {
+            background-color: var(--bubble-received-bg); color: var(--font-color);
+            align-self: flex-start; border-bottom-left-radius: 4px;
+        }
+        .chat-input-area {
+            display: flex; padding: 8px; background-color: #f5f5f5;
+            border-top: 1px solid #e0e0e0;
+        }
+        #message-input {
+            flex-grow: 1; border: none; padding: 10px 12px; border-radius: 20px;
+            background-color: #fff; font-size: 1.5em; outline: none; margin-right: 8px;
+        }
+        #send-button {
+            background-color: var(--line-green); color: white; border: none;
+            padding: 10px 18px; border-radius: 20px; font-size: 1em; cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #send-button:hover { background-color: #05b34d; }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <header class="chat-header">
+            跟 AI 聊天吧
+        </header>
+
+        <main class="chat-messages" id="chat-messages">
+            <div class="message-bubble received">
+                抱歉，我更新了！現在符號更完整，我也會好好用標點符號了。試試看吧！
+            </div>
+        </main>
+
+        <footer class="chat-input-area">
+            <input type="text" id="message-input" placeholder="...">
+            <button id="send-button">傳送</button>
+        </footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const emojiMapping = {
+            'a': '🍎', 'b': '🍌', 'c': '🐱', 'd': '🐶', 'e': '🐘', 'f': '🦊', 'g': '🦒', 
+            'h': '🐴', 'i': '🧊', 'j': '💎', 'k': '🐨', 'l': '🦁', 'm': '🐵', 'n': '🍜', 
+            'o': '🍊', 'p': '🐼', 'q': '👑', 'r': '🐰', 's': '🐍', 't': '🐅', 'u': '🦄', 
+            'v': '🌋', 'w': '🍉', 'x': '⚔️', 'y': '🍦', 'z': '🦓',
+            '0': '🍪', '1': '🍕', '2': '🍔', '3': '🍟', '4': '🍿', '5': '🍩', '6': '🍰', 
+            '7': '🍭', '8': '🍫', '9': '🍬',
+            ' ': '💨', '!': '❗', '?': '❓', '.': '⚫', ',': '🍃', "'": '💧', '"': '💬',
+            '@': '🎯', '#': '⚓', '$': '💲', '%': '📈', '^': '🔼', '&': '🔗', '*': '⭐',
+            '(': '👈', ')': '👉', '-': '➖', '_': '📏', '+': '➕', '=': '🟰',
+            '[': '⏪', ']': '⏩', '{': '📂', '}': '📁',
+            '|': '💈', '\\': '🥢', '/': '🔪',
+            ';': '✨', ':': '👀', '~': '〰️', '`': '⚡'
+        };
+
+        const botReplies = [
+            "今天讀書還順利嗎？",
+            "別忘了休息一下，喝杯水吧！",
+        ];
+
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const chatMessages = document.getElementById('chat-messages');
+
+        let lastBotReplyIndex = -1;
+        
+        function handleRealtimeInput(event) {
+            const lastChar = event.data;
+            const mappingKey = lastChar ? lastChar.toLowerCase() : null;
+
+            if (mappingKey && emojiMapping[mappingKey]) {
+                event.preventDefault();
+                const currentValue = messageInput.value;
+                const newValue = currentValue.slice(0, -1) + emojiMapping[mappingKey];
+                messageInput.value = newValue;
+            }
+        }
+
+        function sendMessage() {
+            const emojiMessage = messageInput.value.trim();
+            if (emojiMessage === '') return;
+
+            appendMessage(emojiMessage, 'sent');
+            messageInput.value = '';
+            messageInput.focus();
+
+            setTimeout(sendBotReply, 1000 + Math.random() * 500);
+        }
+
+        function sendBotReply() {
+            if (botReplies.length === 0) return;
+
+            let newIndex;
+            
+            if (botReplies.length > 1) {
+                do {
+                    newIndex = Math.floor(Math.random() * botReplies.length);
+                } while (newIndex === lastBotReplyIndex);
+            } else {
+                newIndex = 0;
+            }
+            
+            lastBotReplyIndex = newIndex;
+            const replyText = botReplies[newIndex];
+            appendMessage(replyText, 'received');
+        }
+
+        function appendMessage(text, type) {
+            const messageBubble = document.createElement('div');
+            messageBubble.classList.add('message-bubble', type);
+            messageBubble.textContent = text;
+            chatMessages.appendChild(messageBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        messageInput.addEventListener('input', handleRealtimeInput);
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        messageInput.focus();
+    });
+    </script>
+</body>
+</html>
